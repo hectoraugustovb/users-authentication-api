@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.EntityFrameworkCore;
 using UsersAuthenticationApi.Data;
 using UsersAuthenticationApi.Dtos;
@@ -13,11 +14,13 @@ namespace UsersAuthenticationApi.Controllers
   {
     private readonly AppDbContext _context;
     private readonly PasswordService passwordService;
+    private readonly JwtService jwtService;
 
-    public AuthController(AppDbContext context)
+    public AuthController(AppDbContext context, PasswordService passwordService, JwtService jwtService)
     {
       _context = context;
-      passwordService = new PasswordService();
+      this.passwordService = new PasswordService();
+      this.jwtService = jwtService;
     }
 
     [HttpGet]
@@ -50,7 +53,7 @@ namespace UsersAuthenticationApi.Controllers
     }
 
     [HttpPost]
-    public ActionResult<AuthResponseDto> CreateUser([FromBody] CreateUserDto userDto)
+    public async Task<ActionResult<AuthResponseDto>> CreateUser([FromBody] CreateUserDto userDto)
     {
       if (userDto == null)
       {
@@ -73,11 +76,12 @@ namespace UsersAuthenticationApi.Controllers
         Password = userDto.Password,
       };
 
+      await _context.Users.AddAsync(user);
+
       var hashedPassword = passwordService.HashPassword(user, userDto.Password);
       user.Password = hashedPassword;
 
-      _context.Users.Add(user);
-      _context.SaveChanges();
+      await _context.SaveChangesAsync();
 
       var response = new AuthResponseDto
       {
@@ -150,6 +154,55 @@ namespace UsersAuthenticationApi.Controllers
       _context.SaveChanges();
 
       return NoContent();
+    }
+
+    [HttpPost("login")]
+    public async Task<ActionResult> Login([FromBody] LoginDto loginDto)
+    {
+      if (!ModelState.IsValid)
+      {
+        return BadRequest();
+      }
+
+      var user = await _context.Users.Where(u => u.Email == loginDto.Email).FirstOrDefaultAsync();
+
+      if (user == null)
+      {
+        return BadRequest("Email not found");
+      }
+
+      bool isValidPassword = passwordService.VerifyPassword(user, user.Password, loginDto.Password);
+
+      if (!isValidPassword)
+      {
+        return BadRequest("Wrong password");
+      }
+
+      var token = jwtService.GenerateToken(user.Email);
+
+      Response.Cookies.Append("jwt", token, new CookieOptions
+      {
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.Strict,
+        Expires = DateTime.UtcNow.AddDays(1)
+      });
+
+      return Ok();
+    }
+
+    [HttpPost("logout")]
+    public ActionResult logout()
+    {
+      Response.Cookies.Append("jwt", "", new CookieOptions
+      {
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.Strict,
+        Expires = DateTime.UtcNow.AddDays(-1)
+      });
+
+      return Ok();
     }
   }
 }

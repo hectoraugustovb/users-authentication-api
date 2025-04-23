@@ -1,11 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using UsersAuthenticationApi.Data;
+using UsersAuthenticationApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Configuration.AddEnvironmentVariables();
+
+builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<PasswordService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
