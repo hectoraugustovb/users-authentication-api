@@ -39,7 +39,12 @@ O projeto possui os seguintes componentes principais:
     }
     ```
 
-3. **Configuração do JWT**:
+    Logo após configurar, execute a **migration** para inciar o banco de dados:
+    ```bash
+    dotnet ef database update
+    ```
+
+4. **Configuração do JWT**:
 
     A chave secreta, o emissor (Issuer), o público (Audience) e o tempo de expiração do token são configurados no `appsettings.json`:
 
