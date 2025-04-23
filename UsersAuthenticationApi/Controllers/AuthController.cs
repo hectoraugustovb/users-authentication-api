@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.EntityFrameworkCore;
 using UsersAuthenticationApi.Data;
 using UsersAuthenticationApi.Dtos;
@@ -19,7 +18,7 @@ namespace UsersAuthenticationApi.Controllers
     public AuthController(AppDbContext context, PasswordService passwordService, JwtService jwtService)
     {
       _context = context;
-      this.passwordService = new PasswordService();
+      this.passwordService = passwordService;
       this.jwtService = jwtService;
     }
 
@@ -40,7 +39,7 @@ namespace UsersAuthenticationApi.Controllers
     }
 
     [HttpGet("{id}")]
-    public ActionResult<UserModel> GetById(int id)
+    public ActionResult<AuthResponseDto> GetById(int id)
     {
       var user = _context.Users.Find(id);
 
@@ -49,21 +48,19 @@ namespace UsersAuthenticationApi.Controllers
         return BadRequest("User not found");
       }
 
-      return Ok(user);
+      return Ok(new AuthResponseDto
+      {
+        Id = user.Id,
+        Name = user.Name,
+        Email = user.Email,
+        Phone = user.Phone
+      });
     }
 
     [HttpPost]
     public async Task<ActionResult<AuthResponseDto>> CreateUser([FromBody] CreateUserDto userDto)
     {
-      if (userDto == null)
-      {
-        return BadRequest();
-      }
-
-      if (
-        string.IsNullOrEmpty(userDto.Name) || string.IsNullOrEmpty(userDto.Email) ||
-        string.IsNullOrEmpty(userDto.Phone) || string.IsNullOrEmpty(userDto.Password)
-      )
+      if (!ModelState.IsValid)
       {
         return BadRequest();
       }
@@ -73,14 +70,12 @@ namespace UsersAuthenticationApi.Controllers
         Name = userDto.Name,
         Email = userDto.Email,
         Phone = userDto.Phone,
-        Password = userDto.Password,
       };
-
-      await _context.Users.AddAsync(user);
 
       var hashedPassword = passwordService.HashPassword(user, userDto.Password);
       user.Password = hashedPassword;
 
+      await _context.Users.AddAsync(user);
       await _context.SaveChangesAsync();
 
       var response = new AuthResponseDto
@@ -97,7 +92,7 @@ namespace UsersAuthenticationApi.Controllers
     [HttpPut]
     public async Task<ActionResult<AuthResponseDto>> UpdateUser([FromBody] UpdateUserDto userDto)
     {
-      if (userDto == null || string.IsNullOrEmpty(userDto.Password))
+      if (!ModelState.IsValid)
       {
         return BadRequest();
       }
@@ -127,7 +122,7 @@ namespace UsersAuthenticationApi.Controllers
         user.Password = newPassword;
       }
 
-      _context.SaveChanges();
+      await _context.SaveChangesAsync();
 
       AuthResponseDto response = new()
       {
@@ -188,7 +183,7 @@ namespace UsersAuthenticationApi.Controllers
         Expires = DateTime.UtcNow.AddDays(1)
       });
 
-      return Ok();
+      return Ok(new { token });
     }
 
     [HttpPost("logout")]

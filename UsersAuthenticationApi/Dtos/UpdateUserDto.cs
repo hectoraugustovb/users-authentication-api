@@ -5,7 +5,7 @@ namespace UsersAuthenticationApi.Dtos
   public class UpdateUserDto
   {
     [Required]
-    [MinLength(1)]
+    [Range(1, int.MaxValue)]
     public int Id { get; set; }
     public string? Name { get; set; }
 

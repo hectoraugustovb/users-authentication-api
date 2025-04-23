@@ -5,7 +5,12 @@ namespace UsersAuthenticationApi.Services
 {
   public class PasswordService
   {
-    private readonly PasswordHasher<UserModel> passwordHasher = new();
+    private readonly IPasswordHasher<UserModel> passwordHasher;
+
+    public PasswordService(IPasswordHasher<UserModel> passwordHasher)
+    {
+      this.passwordHasher = passwordHasher;
+    }
 
     public string HashPassword(UserModel user, string plainPassword)
     {

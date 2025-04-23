@@ -10,12 +10,14 @@ namespace UsersAuthenticationApi.Services
     private readonly string secretKey;
     private readonly string issuer;
     private readonly string audience;
+    private readonly int expiresInMinutes;
 
     public JwtService(IConfiguration configuration)
     {
       secretKey = configuration["Jwt:SecretKey"] ?? throw new ArgumentNullException("SecretKey");
       issuer = configuration["Jwt:Issuer"] ?? throw new ArgumentNullException("Issuer");
       audience = configuration["Jwt:Audience"] ?? throw new ArgumentNullException("Audience");
+      expiresInMinutes = int.Parse(configuration["Jwt:ExpiresInMinutes"] ?? throw new ArgumentNullException("ExpiresInMinutes"));
     }
 
     public string GenerateToken(string Email)
@@ -33,7 +35,7 @@ namespace UsersAuthenticationApi.Services
         issuer: issuer,
         audience: audience,
         claims: claims,
-        expires: DateTime.UtcNow.AddDays(1),
+        expires: DateTime.UtcNow.AddMinutes(expiresInMinutes),
         signingCredentials: credentials
       );
 
