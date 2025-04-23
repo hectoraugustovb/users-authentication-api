@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using UsersAuthenticationApi.Data;
+using UsersAuthenticationApi.Dtos;
 using UsersAuthenticationApi.Models;
 using UsersAuthenticationApi.Services;
 
@@ -20,11 +21,19 @@ namespace UsersAuthenticationApi.Controllers
     }
 
     [HttpGet]
-    public ActionResult<List<UserModel>> GetAllUsers()
+    public ActionResult<List<AuthResponseDto>> GetAllUsers()
     {
       var users = _context.Users.ToList();
 
-      return Ok(users);
+      var response = users.Select(user => new AuthResponseDto
+      {
+         Id = user.Id,
+         Name = user.Name,
+         Email = user.Email,
+         Phone = user.Phone
+      }).ToList();
+
+      return Ok(response);
     }
 
     [HttpGet("{id}")]
@@ -41,25 +50,44 @@ namespace UsersAuthenticationApi.Controllers
     }
 
     [HttpPost]
-    public ActionResult<UserModel> CreateUser([FromBody] UserModel user)
+    public ActionResult<AuthResponseDto> CreateUser([FromBody] CreateUserDto userDto)
     {
-      if (user == null)
+      if (userDto == null)
       {
         return BadRequest();
       }
 
-      if (user.Name == null || user.Email == null || user.Phone == null || user.Password == null)
+      if (
+        string.IsNullOrEmpty(userDto.Name) || string.IsNullOrEmpty(userDto.Email) ||
+        string.IsNullOrEmpty(userDto.Phone) || string.IsNullOrEmpty(userDto.Password)
+      )
       {
         return BadRequest();
       }
 
-      var hashedPassword = passwordService.HashPassword(user, user.Password);
+      var user = new UserModel
+      {
+        Name = userDto.Name,
+        Email = userDto.Email,
+        Phone = userDto.Phone,
+        Password = userDto.Password,
+      };
+
+      var hashedPassword = passwordService.HashPassword(user, userDto.Password);
       user.Password = hashedPassword;
 
       _context.Users.Add(user);
       _context.SaveChanges();
 
-      return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+      var response = new AuthResponseDto
+      {
+        Id = user.Id,
+        Name = user.Name,
+        Email = user.Email,
+        Phone = user.Phone,
+      };
+
+      return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
     }
   }
 }
