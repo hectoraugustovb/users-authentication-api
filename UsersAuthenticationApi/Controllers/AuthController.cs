@@ -1,5 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using UsersAuthenticationApi.Data;
 using UsersAuthenticationApi.Dtos;
 using UsersAuthenticationApi.Models;
@@ -25,7 +25,7 @@ namespace UsersAuthenticationApi.Controllers
     {
       var users = _context.Users.ToList();
 
-      var response = users.Select(user => new AuthResponseDto
+      List<AuthResponseDto> response = users.Select(user => new AuthResponseDto
       {
          Id = user.Id,
          Name = user.Name,
@@ -88,6 +88,68 @@ namespace UsersAuthenticationApi.Controllers
       };
 
       return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
+    }
+
+    [HttpPut]
+    public async Task<ActionResult<AuthResponseDto>> UpdateUser([FromBody] UpdateUserDto userDto)
+    {
+      if (userDto == null || string.IsNullOrEmpty(userDto.Password))
+      {
+        return BadRequest();
+      }
+
+      var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userDto.Id);
+
+      if (user == null)
+      {
+        return NotFound("User not found.");
+      }
+
+      bool isValidPassword = passwordService.VerifyPassword(user, user.Password, userDto.Password);
+
+      if (!isValidPassword)
+      {
+        return BadRequest("Wrong password");
+      }
+
+      user.Name = userDto.Name ?? user.Name;
+      user.Email = userDto.Email ?? user.Email;
+      user.Phone = userDto.Phone ?? user.Phone;
+
+      if (userDto.NewPassword != null && userDto.Password != userDto.NewPassword)
+      {
+        var newPassword = passwordService.HashPassword(user, userDto.NewPassword);
+
+        user.Password = newPassword;
+      }
+
+      _context.SaveChanges();
+
+      AuthResponseDto response = new()
+      {
+        Id = user.Id,
+        Name = user.Name,
+        Email = user.Email,
+        Phone = user.Phone,
+      };
+
+      return Ok(response);
+    }
+
+    [HttpDelete("{id}")]
+    public ActionResult DeleteUser(int id)
+    {
+      var user = _context.Users.Find(id);
+
+      if (user == null)
+      {
+        return NotFound("User not found");
+      }
+
+      _context.Users.Remove(user);
+      _context.SaveChanges();
+
+      return NoContent();
     }
   }
 }
